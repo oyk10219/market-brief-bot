@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Market Brief dry-run",
+      "type": "python",
+      "request": "launch",
+      "module": "src.main",
+      "console": "integratedTerminal",
+      "args": [
+        "--dry-run",
+        "--debug",
+        "--save-md"
+      ],
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "Market Brief keyword test",
+      "type": "python",
+      "request": "launch",
+      "module": "src.main",
+      "console": "integratedTerminal",
+      "args": [
+        "--dry-run",
+        "--debug",
+        "--keyword",
+        "반도체"
+      ],
+      "envFile": "${workspaceFolder}/.env"
+    }
+  ]
+}
