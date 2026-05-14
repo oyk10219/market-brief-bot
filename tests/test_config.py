@@ -27,3 +27,19 @@ def test_load_config_reads_admin_chat_id(monkeypatch):
     config = load_config()
 
     assert config.telegram_admin_chat_id == "999"
+
+
+def test_load_config_reads_send_channels(monkeypatch):
+    monkeypatch.setenv("SEND_CHANNELS", "telegram,kakao,telegram")
+
+    config = load_config()
+
+    assert config.send_channels == ["telegram", "kakao"]
+
+
+def test_load_config_defaults_to_telegram_channel(monkeypatch):
+    monkeypatch.delenv("SEND_CHANNELS", raising=False)
+
+    config = load_config()
+
+    assert config.send_channels == ["telegram"]

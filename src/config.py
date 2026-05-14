@@ -22,10 +22,17 @@ class AppConfig:
     base_dir: Path
     naver_client_id: str
     naver_client_secret: str
+    send_channels: list
     telegram_bot_token: str
     telegram_chat_id: str
     telegram_chat_ids: list
     telegram_admin_chat_id: str
+    kakao_rest_api_key: str
+    kakao_refresh_token: str
+    kakao_redirect_uri: str
+    kakao_client_secret: str
+    kakao_link_url: str
+    kakao_max_text_length: int
     dart_api_key: str
     data_dir: Path
     logs_dir: Path
@@ -46,16 +53,22 @@ class AppConfig:
     telegram_detail_mode: str
     telegram_links_per_section: int
 
-    def missing_required(self, send_telegram=True):
+    def missing_required(self, send_telegram=True, send_kakao=False):
         missing = []
         if not self.naver_client_id:
             missing.append("NAVER_CLIENT_ID")
         if not self.naver_client_secret:
             missing.append("NAVER_CLIENT_SECRET")
+        if (send_telegram or send_kakao) and not set(self.send_channels).intersection(("telegram", "kakao")):
+            missing.append("SEND_CHANNELS must include telegram or kakao")
         if send_telegram and not self.telegram_bot_token:
             missing.append("TELEGRAM_BOT_TOKEN")
         if send_telegram and not self.telegram_chat_ids:
             missing.append("TELEGRAM_CHAT_ID or TELEGRAM_CHAT_IDS")
+        if send_kakao and not self.kakao_rest_api_key:
+            missing.append("KAKAO_REST_API_KEY")
+        if send_kakao and not self.kakao_refresh_token:
+            missing.append("KAKAO_REFRESH_TOKEN")
         return missing
 
 
@@ -101,6 +114,12 @@ def _unique(values):
     return result
 
 
+def _send_channels():
+    raw_value = os.getenv("SEND_CHANNELS", "telegram")
+    channels = [value.lower() for value in _split_csv(raw_value)]
+    return _unique(channels) or ["telegram"]
+
+
 def load_config():
     _load_dotenv_if_available()
 
@@ -117,10 +136,17 @@ def load_config():
         base_dir=base_dir,
         naver_client_id=os.getenv("NAVER_CLIENT_ID", "").strip(),
         naver_client_secret=os.getenv("NAVER_CLIENT_SECRET", "").strip(),
+        send_channels=_send_channels(),
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
         telegram_chat_id=telegram_chat_id,
         telegram_chat_ids=_unique(_split_csv(telegram_chat_ids_raw)),
         telegram_admin_chat_id=os.getenv("TELEGRAM_ADMIN_CHAT_ID", "").strip(),
+        kakao_rest_api_key=os.getenv("KAKAO_REST_API_KEY", "").strip(),
+        kakao_refresh_token=os.getenv("KAKAO_REFRESH_TOKEN", "").strip(),
+        kakao_redirect_uri=os.getenv("KAKAO_REDIRECT_URI", "http://localhost:8765/kakao/callback").strip(),
+        kakao_client_secret=os.getenv("KAKAO_CLIENT_SECRET", "").strip(),
+        kakao_link_url=os.getenv("KAKAO_LINK_URL", "https://github.com/oyk10219/market-brief-bot").strip(),
+        kakao_max_text_length=_get_int("KAKAO_MAX_TEXT_LENGTH", 200),
         dart_api_key=os.getenv("DART_API_KEY", "").strip(),
         data_dir=data_dir,
         logs_dir=logs_dir,

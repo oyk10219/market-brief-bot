@@ -7,6 +7,7 @@ from .article_fetcher import enrich_news_with_articles
 from .dart_fetcher import DartFetcher
 from .database import BriefingDatabase
 from .formatter import format_briefing, format_compact_briefing, split_message
+from .kakao_sender import KakaoSender
 from .logger import setup_logger
 from .news_filter import filter_news_items
 from .news_fetcher import NewsFetcher
@@ -18,7 +19,7 @@ from .utils import deduplicate_news, mask_secret, now_kst
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Market Brief daily briefing bot")
     parser.add_argument("--dry-run", action="store_true", help="텔레그램 전송 없이 콘솔에 출력합니다.")
-    parser.add_argument("--no-telegram", action="store_true", help="메시지 생성까지만 수행합니다.")
+    parser.add_argument("--no-telegram", action="store_true", help="외부 전송 없이 메시지 생성까지만 수행합니다.")
     parser.add_argument("--debug", action="store_true", help="상세 로그를 출력합니다.")
     parser.add_argument("--keyword", help="지정한 키워드 하나만 테스트합니다.")
     parser.add_argument("--save-md", action="store_true", help="output/briefing_YYYYMMDD.md 파일을 저장합니다.")
@@ -130,15 +131,19 @@ def run(argv=None):
     messages = []
     summary = ""
     error_summaries = []
-    send_telegram = not args.dry_run and not args.no_telegram
+    send_messages = not args.dry_run and not args.no_telegram
+    send_telegram = send_messages and "telegram" in config.send_channels
+    send_kakao = send_messages and "kakao" in config.send_channels
 
     try:
-        missing = config.missing_required(send_telegram=send_telegram)
+        missing = config.missing_required(send_telegram=send_telegram, send_kakao=send_kakao)
+        if send_messages and not (send_telegram or send_kakao):
+            missing.append("SEND_CHANNELS must include telegram or kakao")
         if missing:
             message = "필수 환경변수가 누락되었습니다: %s" % ", ".join(missing)
             error_summaries.append(_record_plain_error(db, run_id, logger, "config", message))
             db.finish_run(run_id, "FAILED", 0, 0)
-            if send_telegram:
+            if send_messages:
                 _send_failure_alert(config, logger, "FAILED", generated_at, error_summaries, run_id=run_id)
             return 2
 
@@ -264,68 +269,92 @@ def run(argv=None):
         else:
             telegram_briefing = detailed_briefing
         messages = split_message(telegram_briefing)
+        kakao_message_count = 0
 
         if args.save_md:
             path = _save_markdown(config.output_dir, detailed_briefing, generated_at)
             logger.info("Markdown 저장 완료: %s", path)
 
         if args.dry_run or args.no_telegram:
-            logger.info("텔레그램 전송 없이 메시지를 출력합니다.")
+            logger.info("외부 전송 없이 메시지를 출력합니다.")
             for index, message in enumerate(messages, start=1):
                 print("\n----- MESSAGE %s/%s -----\n" % (index, len(messages)))
                 print(message)
                 db.record_sent_message(run_id, index, message, "DRY_RUN")
         else:
-            logger.info(
-                "텔레그램 전송을 시작합니다. 수신자 %s명, 메시지 %s개",
-                len(config.telegram_chat_ids),
-                len(messages),
-            )
-            sender = TelegramSender(
-                config.telegram_bot_token,
-                timeout=config.request_timeout,
-            )
-            telegram_failures = 0
-            for recipient_index, chat_id in enumerate(config.telegram_chat_ids, start=1):
-                masked_chat_id = _masked_chat_id(chat_id)
-                try:
-                    logger.info(
-                        "텔레그램 수신자 %s/%s 전송 시작: %s",
-                        recipient_index,
-                        len(config.telegram_chat_ids),
-                        masked_chat_id,
-                    )
-                    results = sender.send_messages(chat_id, messages)
-                    for index, result in enumerate(results, start=1):
-                        db.record_sent_message(
-                            run_id,
-                            index,
-                            messages[index - 1],
-                            "SENT",
-                            telegram_message_id=str(result.get("message_id", "")),
+            if send_telegram:
+                logger.info(
+                    "텔레그램 전송을 시작합니다. 수신자 %s명, 메시지 %s개",
+                    len(config.telegram_chat_ids),
+                    len(messages),
+                )
+                sender = TelegramSender(
+                    config.telegram_bot_token,
+                    timeout=config.request_timeout,
+                )
+                telegram_failures = 0
+                for recipient_index, chat_id in enumerate(config.telegram_chat_ids, start=1):
+                    masked_chat_id = _masked_chat_id(chat_id)
+                    try:
+                        logger.info(
+                            "텔레그램 수신자 %s/%s 전송 시작: %s",
+                            recipient_index,
+                            len(config.telegram_chat_ids),
+                            masked_chat_id,
                         )
-                    logger.info(
-                        "텔레그램 수신자 %s/%s 전송 완료",
-                        recipient_index,
+                        results = sender.send_messages(chat_id, messages)
+                        for index, result in enumerate(results, start=1):
+                            db.record_sent_message(
+                                run_id,
+                                index,
+                                messages[index - 1],
+                                "SENT",
+                                telegram_message_id=str(result.get("message_id", "")),
+                            )
+                        logger.info(
+                            "텔레그램 수신자 %s/%s 전송 완료",
+                            recipient_index,
+                            len(config.telegram_chat_ids),
+                        )
+                    except Exception as exc:
+                        errors += 1
+                        telegram_failures += 1
+                        error_summaries.append(_record_error(db, run_id, logger, "telegram:%s" % masked_chat_id, exc))
+                        for index, message in enumerate(messages, start=1):
+                            db.record_sent_message(run_id, index, message, "FAILED")
+
+                if telegram_failures == len(config.telegram_chat_ids):
+                    critical_failure = True
+                elif telegram_failures:
+                    logger.warning(
+                        "텔레그램 일부 수신자 전송 실패: %s/%s명",
+                        telegram_failures,
                         len(config.telegram_chat_ids),
                     )
+                else:
+                    logger.info("텔레그램 전송 완료")
+
+            if send_kakao:
+                try:
+                    kakao_sender = KakaoSender(
+                        config.kakao_rest_api_key,
+                        config.kakao_refresh_token,
+                        client_secret=config.kakao_client_secret,
+                        link_url=config.kakao_link_url,
+                        timeout=config.request_timeout,
+                        max_text_length=config.kakao_max_text_length,
+                    )
+                    kakao_messages = kakao_sender.split_message(telegram_briefing)
+                    kakao_message_count = len(kakao_messages)
+                    logger.info("카카오톡 나에게 보내기를 시작합니다. 메시지 %s개", len(kakao_messages))
+                    results = kakao_sender.send_message(telegram_briefing)
+                    for index, message in enumerate(kakao_messages, start=1):
+                        db.record_sent_message(run_id, index, message, "KAKAO_SENT")
+                    logger.info("카카오톡 나에게 보내기 완료: %s개", len(results))
                 except Exception as exc:
                     errors += 1
-                    telegram_failures += 1
-                    error_summaries.append(_record_error(db, run_id, logger, "telegram:%s" % masked_chat_id, exc))
-                    for index, message in enumerate(messages, start=1):
-                        db.record_sent_message(run_id, index, message, "FAILED")
-
-            if telegram_failures == len(config.telegram_chat_ids):
-                critical_failure = True
-            elif telegram_failures:
-                logger.warning(
-                    "텔레그램 일부 수신자 전송 실패: %s/%s명",
-                    telegram_failures,
-                    len(config.telegram_chat_ids),
-                )
-            else:
-                logger.info("텔레그램 전송 완료")
+                    error_summaries.append(_record_error(db, run_id, logger, "kakao", exc))
+                    critical_failure = critical_failure or not send_telegram
 
         if critical_failure:
             status = "FAILED"
@@ -338,10 +367,14 @@ def run(argv=None):
             run_id,
             status,
             item_count=len(news_items) + len(disclosures),
-            message_count=len(messages) * (len(config.telegram_chat_ids) if send_telegram else 1),
+            message_count=(
+                (len(messages) * len(config.telegram_chat_ids) if send_telegram else 0)
+                + kakao_message_count
+                + (len(messages) if not send_messages else 0)
+            ),
         )
 
-        if send_telegram and status != "SUCCESS":
+        if send_messages and status != "SUCCESS":
             _send_failure_alert(config, logger, status, generated_at, error_summaries, run_id=run_id)
 
         if critical_failure:
@@ -355,7 +388,7 @@ def run(argv=None):
             item_count=len(news_items) + len(disclosures),
             message_count=len(messages),
         )
-        if send_telegram:
+        if send_messages:
             _send_failure_alert(config, logger, "FAILED", generated_at, error_summaries, run_id=run_id)
         return 1
 

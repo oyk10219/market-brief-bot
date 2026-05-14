@@ -25,24 +25,49 @@ jobs:
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          SEND_CHANNELS: ${{ secrets.SEND_CHANNELS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          KAKAO_REST_API_KEY: ${{ secrets.KAKAO_REST_API_KEY }}
+          KAKAO_REFRESH_TOKEN: ${{ secrets.KAKAO_REFRESH_TOKEN }}
+          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
+          KAKAO_LINK_URL: ${{ secrets.KAKAO_LINK_URL }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
           DART_TARGET_COMPANIES: ${{ secrets.DART_TARGET_COMPANIES }}
         run: |
           missing=0
-          for name in NAVER_CLIENT_ID NAVER_CLIENT_SECRET TELEGRAM_BOT_TOKEN; do
+          CHANNELS="${SEND_CHANNELS:-telegram}"
+          for name in NAVER_CLIENT_ID NAVER_CLIENT_SECRET; do
             if [ -z "${!name}" ]; then
               echo "::error title=Missing secret::$name is required"
               missing=1
             fi
           done
-          if [ -z "$TELEGRAM_CHAT_ID" ] && [ -z "$TELEGRAM_CHAT_IDS" ]; then
-            echo "::error title=Missing secret::TELEGRAM_CHAT_ID or TELEGRAM_CHAT_IDS is required"
-            missing=1
+
+          if echo "$CHANNELS" | grep -q "telegram"; then
+            if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
+              echo "::error title=Missing secret::TELEGRAM_BOT_TOKEN is required"
+              missing=1
+            fi
+            if [ -z "$TELEGRAM_CHAT_ID" ] && [ -z "$TELEGRAM_CHAT_IDS" ]; then
+              echo "::error title=Missing secret::TELEGRAM_CHAT_ID or TELEGRAM_CHAT_IDS is required"
+              missing=1
+            fi
           fi
+
+          if echo "$CHANNELS" | grep -q "kakao"; then
+            if [ -z "$KAKAO_REST_API_KEY" ]; then
+              echo "::error title=Missing secret::KAKAO_REST_API_KEY is required"
+              missing=1
+            fi
+            if [ -z "$KAKAO_REFRESH_TOKEN" ]; then
+              echo "::error title=Missing secret::KAKAO_REFRESH_TOKEN is required"
+              missing=1
+            fi
+          fi
+
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi
