@@ -99,15 +99,45 @@ def _topic_candidates(summary, news_items, limit=6):
     return topics
 
 
+def _item_contains_company(item, company):
+    text = " ".join(
+        [
+            item.get("section") or "",
+            item.get("title") or "",
+            item.get("description") or "",
+            item.get("corp_name") or "",
+            item.get("report_name") or "",
+        ]
+    )
+    return company in text
+
+
+def _watchlist_lines(news_items, disclosures, watchlist_companies):
+    if not watchlist_companies:
+        return []
+
+    lines = []
+    for company in watchlist_companies:
+        news_count = sum(1 for item in news_items if _item_contains_company(item, company))
+        disclosure_count = sum(1 for item in disclosures if _item_contains_company(item, company))
+        if news_count or disclosure_count:
+            lines.append("- %s: 뉴스 %s건, 공시 %s건" % (company, news_count, disclosure_count))
+        else:
+            lines.append("- %s: 수집된 뉴스/공시 없음" % company)
+    return lines
+
+
 def format_compact_briefing(
     news_items,
     disclosures=None,
     generated_at=None,
     summary=None,
-    links_per_section=2,
+    links_per_section=1,
+    watchlist_companies=None,
 ):
     generated_at = generated_at or now_kst()
     disclosures = disclosures or []
+    watchlist_companies = watchlist_companies or []
     links_per_section = max(1, int(links_per_section or 1))
 
     lines = [
@@ -126,6 +156,12 @@ def format_compact_briefing(
         lines.extend("- %s" % topic for topic in topics)
         lines.append("")
 
+    watchlist = _watchlist_lines(news_items, disclosures, watchlist_companies)
+    if watchlist:
+        lines.append("## 관심 종목/공시")
+        lines.extend(watchlist)
+        lines.append("")
+
     if news_items:
         lines.append("## 주요 기사")
         for section, items in group_news_by_section(news_items):
@@ -138,7 +174,7 @@ def format_compact_briefing(
 
     if disclosures:
         lines.append("## DART 공시")
-        for index, item in enumerate(disclosures[:5], start=1):
+        for index, item in enumerate(disclosures[:links_per_section], start=1):
             lines.append(_format_disclosure(index, item))
         lines.append("")
 

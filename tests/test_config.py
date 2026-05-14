@@ -5,7 +5,7 @@ from src.config import load_config
 
 def test_load_config_splits_single_chat_id(monkeypatch):
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "111,222")
-    monkeypatch.delenv("TELEGRAM_CHAT_IDS", raising=False)
+    monkeypatch.setenv("TELEGRAM_CHAT_IDS", "")
 
     config = load_config()
 
@@ -19,3 +19,11 @@ def test_load_config_prefers_chat_ids(monkeypatch):
     config = load_config()
 
     assert config.telegram_chat_ids == ["222", "333"]
+
+
+def test_load_config_reads_admin_chat_id(monkeypatch):
+    monkeypatch.setenv("TELEGRAM_ADMIN_CHAT_ID", "999")
+
+    config = load_config()
+
+    assert config.telegram_admin_chat_id == "999"

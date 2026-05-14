@@ -47,6 +47,32 @@ def test_format_compact_briefing_limits_links_per_section():
     assert DISCLAIMER in message
 
 
+def test_format_compact_briefing_contains_watchlist_summary():
+    message = format_compact_briefing(
+        [
+            {
+                "section": "싸이토젠 뉴스",
+                "title": "싸이토젠 임상 관련 뉴스",
+                "source": "a.com",
+                "link": "https://a.com/1",
+            }
+        ],
+        disclosures=[
+            {
+                "corp_name": "싸이토젠",
+                "report_name": "주요사항보고서",
+                "received_at": "2026-05-14",
+                "link": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=1",
+            }
+        ],
+        watchlist_companies=["싸이토젠", "경인양행"],
+    )
+
+    assert "## 관심 종목/공시" in message
+    assert "- 싸이토젠: 뉴스 1건, 공시 1건" in message
+    assert "- 경인양행: 수집된 뉴스/공시 없음" in message
+
+
 def test_split_message_keeps_limit():
     message = "\n".join(["긴 문장 %s" % index for index in range(100)])
 

@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+DEFAULT_DART_TARGET_COMPANIES = "싸이토젠,경인양행"
+
 NEWS_SECTIONS = [
     {"section": "한국 증시 주요 뉴스", "query": "한국 증시", "display": 5},
     {"section": "미국 증시 주요 뉴스", "query": "미국 증시 뉴욕증시", "display": 5},
@@ -10,6 +12,8 @@ NEWS_SECTIONS = [
     {"section": "오늘 강한 테마 후보", "query": "증시 강한 테마", "display": 5},
     {"section": "반도체 관련 뉴스", "query": "반도체 주식", "display": 5},
     {"section": "바이오 관련 뉴스", "query": "바이오 주식", "display": 5},
+    {"section": "싸이토젠 뉴스", "query": "싸이토젠", "display": 5},
+    {"section": "경인양행 뉴스", "query": "경인양행", "display": 5},
 ]
 
 
@@ -21,6 +25,7 @@ class AppConfig:
     telegram_bot_token: str
     telegram_chat_id: str
     telegram_chat_ids: list
+    telegram_admin_chat_id: str
     dart_api_key: str
     data_dir: Path
     logs_dir: Path
@@ -103,7 +108,7 @@ def load_config():
     logs_dir = base_dir / "logs"
     output_dir = base_dir / "output"
 
-    target_companies = os.getenv("DART_TARGET_COMPANIES", "")
+    target_companies = os.getenv("DART_TARGET_COMPANIES", DEFAULT_DART_TARGET_COMPANIES)
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     telegram_chat_ids_raw = os.getenv("TELEGRAM_CHAT_IDS", "").strip() or telegram_chat_id
 
@@ -114,6 +119,7 @@ def load_config():
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
         telegram_chat_id=telegram_chat_id,
         telegram_chat_ids=_unique(_split_csv(telegram_chat_ids_raw)),
+        telegram_admin_chat_id=os.getenv("TELEGRAM_ADMIN_CHAT_ID", "").strip(),
         dart_api_key=os.getenv("DART_API_KEY", "").strip(),
         data_dir=data_dir,
         logs_dir=logs_dir,
@@ -131,5 +137,5 @@ def load_config():
         article_fetch_max_chars=_get_int("ARTICLE_FETCH_MAX_CHARS", 2500),
         article_fetch_timeout=_get_int("ARTICLE_FETCH_TIMEOUT", 10),
         telegram_detail_mode=os.getenv("TELEGRAM_DETAIL_MODE", "compact").strip().lower() or "compact",
-        telegram_links_per_section=_get_int("TELEGRAM_LINKS_PER_SECTION", 2),
+        telegram_links_per_section=_get_int("TELEGRAM_LINKS_PER_SECTION", 1),
     )

@@ -31,6 +31,13 @@ def _record_error(db, run_id, logger, stage, exc):
     logger.error("[%s] %s", stage, text)
     logger.debug(trace)
     db.record_error(run_id, stage, text, trace)
+    return {"stage": stage, "message": text}
+
+
+def _record_plain_error(db, run_id, logger, stage, message):
+    logger.error("[%s] %s", stage, message)
+    db.record_error(run_id, stage, message)
+    return {"stage": stage, "message": message}
 
 
 def _selected_sections(keyword):
@@ -48,6 +55,57 @@ def _save_markdown(output_dir, message, generated_at):
 
 def _masked_chat_id(chat_id):
     return mask_secret(chat_id, visible=4)
+
+
+def _admin_chat_id(config):
+    if config.telegram_admin_chat_id:
+        return config.telegram_admin_chat_id
+    if config.telegram_chat_ids:
+        return config.telegram_chat_ids[0]
+    return ""
+
+
+def _format_failure_alert(status, generated_at, error_summaries, run_id=None):
+    lines = [
+        "MarketBriefBot 오류 알림",
+        "상태: %s" % status,
+        "시간: %s" % generated_at.strftime("%Y-%m-%d %H:%M"),
+    ]
+    if run_id:
+        lines.append("실행 ID: %s" % run_id)
+
+    lines.append("")
+    lines.append("오류 단계:")
+    if error_summaries:
+        for error in error_summaries[:8]:
+            message = str(error.get("message") or "").replace("\n", " ").strip()
+            if len(message) > 300:
+                message = message[:300] + "..."
+            lines.append("- %s: %s" % (error.get("stage") or "unknown", message))
+    else:
+        lines.append("- 상세 오류는 logs/app.log 또는 SQLite errors 테이블을 확인해 주세요.")
+
+    return "\n".join(lines)
+
+
+def _send_failure_alert(config, logger, status, generated_at, error_summaries, run_id=None):
+    chat_id = _admin_chat_id(config)
+    if not config.telegram_bot_token:
+        logger.warning("TELEGRAM_BOT_TOKEN이 없어 실패 알림을 보낼 수 없습니다.")
+        return False
+    if not chat_id:
+        logger.warning("관리자 chat_id가 없어 실패 알림을 보낼 수 없습니다.")
+        return False
+
+    try:
+        sender = TelegramSender(config.telegram_bot_token, timeout=config.request_timeout)
+        sender.send_message(chat_id, _format_failure_alert(status, generated_at, error_summaries, run_id=run_id))
+        logger.info("실패 알림 전송 완료: %s", _masked_chat_id(chat_id))
+        return True
+    except Exception as exc:
+        logger.error("실패 알림 전송 실패: %s: %s", exc.__class__.__name__, exc)
+        logger.debug(traceback.format_exc())
+        return False
 
 
 def run(argv=None):
@@ -70,15 +128,17 @@ def run(argv=None):
     disclosures = []
     messages = []
     summary = ""
+    error_summaries = []
+    send_telegram = not args.dry_run and not args.no_telegram
 
     try:
-        send_telegram = not args.dry_run and not args.no_telegram
         missing = config.missing_required(send_telegram=send_telegram)
         if missing:
             message = "필수 환경변수가 누락되었습니다: %s" % ", ".join(missing)
-            logger.error(message)
-            db.record_error(run_id, "config", message)
+            error_summaries.append(_record_plain_error(db, run_id, logger, "config", message))
             db.finish_run(run_id, "FAILED", 0, 0)
+            if send_telegram:
+                _send_failure_alert(config, logger, "FAILED", generated_at, error_summaries, run_id=run_id)
             return 2
 
         logger.info("뉴스 수집을 시작합니다.")
@@ -99,7 +159,7 @@ def run(argv=None):
                 news_items.extend(fetched)
             except Exception as exc:
                 errors += 1
-                _record_error(db, run_id, logger, "news:%s" % section, exc)
+                error_summaries.append(_record_error(db, run_id, logger, "news:%s" % section, exc))
 
         news_items = deduplicate_news(news_items)
         db.insert_news_items(news_items)
@@ -125,7 +185,7 @@ def run(argv=None):
                 )
             except Exception as exc:
                 errors += 1
-                _record_error(db, run_id, logger, "article_fetch", exc)
+                error_summaries.append(_record_error(db, run_id, logger, "article_fetch", exc))
                 logger.warning("기사 본문 추출에 실패해 검색 요약 기준으로 진행합니다.")
 
         if config.dart_api_key and config.dart_target_companies:
@@ -139,7 +199,7 @@ def run(argv=None):
                 logger.info("OpenDART 공시 수집 완료: %s건", len(disclosures))
             except Exception as exc:
                 errors += 1
-                _record_error(db, run_id, logger, "dart", exc)
+                error_summaries.append(_record_error(db, run_id, logger, "dart", exc))
         else:
             if not config.dart_api_key:
                 logger.info("DART_API_KEY가 없어 공시 수집 단계를 건너뜁니다.")
@@ -148,7 +208,10 @@ def run(argv=None):
 
         if not news_items and not disclosures:
             critical_failure = True
-            logger.error("전송할 뉴스/공시 데이터가 없습니다.")
+            errors += 1
+            error_summaries.append(
+                _record_plain_error(db, run_id, logger, "data", "전송할 뉴스/공시 데이터가 없습니다.")
+            )
 
         if not args.no_summary and config.summary_provider:
             if config.summary_provider == "codex":
@@ -167,7 +230,7 @@ def run(argv=None):
                     logger.info("Codex CLI 요약 생성 완료: %s", summary_result.output_path)
                 except Exception as exc:
                     errors += 1
-                    _record_error(db, run_id, logger, "summary:codex", exc)
+                    error_summaries.append(_record_error(db, run_id, logger, "summary:codex", exc))
                     logger.warning("요약 생성에 실패해 기존 뉴스 목록만 전송합니다.")
             else:
                 logger.warning("지원하지 않는 SUMMARY_PROVIDER입니다: %s", config.summary_provider)
@@ -180,6 +243,7 @@ def run(argv=None):
                 generated_at=generated_at,
                 summary=summary,
                 links_per_section=config.telegram_links_per_section,
+                watchlist_companies=config.dart_target_companies,
             )
         else:
             telegram_briefing = detailed_briefing
@@ -232,7 +296,7 @@ def run(argv=None):
                 except Exception as exc:
                     errors += 1
                     telegram_failures += 1
-                    _record_error(db, run_id, logger, "telegram:%s" % masked_chat_id, exc)
+                    error_summaries.append(_record_error(db, run_id, logger, "telegram:%s" % masked_chat_id, exc))
                     for index, message in enumerate(messages, start=1):
                         db.record_sent_message(run_id, index, message, "FAILED")
 
@@ -261,17 +325,22 @@ def run(argv=None):
             message_count=len(messages) * (len(config.telegram_chat_ids) if send_telegram else 1),
         )
 
+        if send_telegram and status != "SUCCESS":
+            _send_failure_alert(config, logger, status, generated_at, error_summaries, run_id=run_id)
+
         if critical_failure:
             return 1
         return 0
     except Exception as exc:
-        _record_error(db, run_id, logger, "unexpected", exc)
+        error_summaries.append(_record_error(db, run_id, logger, "unexpected", exc))
         db.finish_run(
             run_id,
             "FAILED",
             item_count=len(news_items) + len(disclosures),
             message_count=len(messages),
         )
+        if send_telegram:
+            _send_failure_alert(config, logger, "FAILED", generated_at, error_summaries, run_id=run_id)
         return 1
 
 
