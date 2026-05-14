@@ -7,7 +7,7 @@ DEFAULT_DART_TARGET_COMPANIES = "싸이토젠,경인양행"
 
 NEWS_SECTIONS = [
     {"section": "한국 증시 주요 뉴스", "query": "한국 증시", "display": 5},
-    {"section": "미국 증시 주요 뉴스", "query": "미국 증시 뉴욕증시", "display": 5},
+    {"section": "미국 증시 주요 뉴스", "query": "뉴욕증시 나스닥 S&P500 다우 연준", "display": 5},
     {"section": "IT 관련 뉴스", "query": "IT 기술 AI 소프트웨어 클라우드 보안", "display": 5},
     {"section": "오늘 강한 테마 후보", "query": "증시 강한 테마", "display": 5},
     {"section": "반도체 관련 뉴스", "query": "반도체 주식", "display": 5},
@@ -42,6 +42,7 @@ class AppConfig:
     article_fetch_per_section: int
     article_fetch_max_chars: int
     article_fetch_timeout: int
+    news_filter_enabled: bool
     telegram_detail_mode: str
     telegram_links_per_section: int
 
@@ -136,6 +137,7 @@ def load_config():
         article_fetch_per_section=_get_int("ARTICLE_FETCH_PER_SECTION", 3),
         article_fetch_max_chars=_get_int("ARTICLE_FETCH_MAX_CHARS", 2500),
         article_fetch_timeout=_get_int("ARTICLE_FETCH_TIMEOUT", 10),
+        news_filter_enabled=_get_bool("NEWS_FILTER_ENABLED", True),
         telegram_detail_mode=os.getenv("TELEGRAM_DETAIL_MODE", "compact").strip().lower() or "compact",
         telegram_links_per_section=_get_int("TELEGRAM_LINKS_PER_SECTION", 1),
     )

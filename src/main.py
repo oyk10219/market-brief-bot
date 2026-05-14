@@ -8,6 +8,7 @@ from .dart_fetcher import DartFetcher
 from .database import BriefingDatabase
 from .formatter import format_briefing, format_compact_briefing, split_message
 from .logger import setup_logger
+from .news_filter import filter_news_items
 from .news_fetcher import NewsFetcher
 from .summarizer import summarize_with_codex
 from .telegram_sender import TelegramSender
@@ -162,6 +163,17 @@ def run(argv=None):
                 error_summaries.append(_record_error(db, run_id, logger, "news:%s" % section, exc))
 
         news_items = deduplicate_news(news_items)
+        if config.news_filter_enabled:
+            before_filter_count = len(news_items)
+            filter_result = filter_news_items(news_items)
+            news_items = filter_result["kept"]
+            removed_count = len(filter_result["removed"])
+            logger.info("뉴스 품질 필터 완료: 유지 %s건, 제외 %s건", len(news_items), removed_count)
+            for section, count in sorted(filter_result["removed_by_section"].items()):
+                logger.info("뉴스 품질 필터 제외: %s %s건", section, count)
+            if before_filter_count and not news_items:
+                logger.warning("뉴스 품질 필터 후 남은 뉴스가 없습니다. 필터를 적용하지 않은 목록으로 복구합니다.")
+                news_items = filter_result["removed"]
         db.insert_news_items(news_items)
         logger.info("뉴스 수집 완료: %s건", len(news_items))
 
