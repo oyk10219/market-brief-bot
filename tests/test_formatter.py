@@ -47,6 +47,16 @@ def test_format_compact_briefing_limits_links_per_section():
     assert DISCLAIMER in message
 
 
+def test_format_compact_briefing_spaces_summary_bullets():
+    message = format_compact_briefing(
+        [],
+        disclosures=[],
+        summary="- 요약 하나\n- 요약 둘",
+    )
+
+    assert "- 요약 하나\n\n- 요약 둘" in message
+
+
 def test_format_compact_briefing_contains_watchlist_summary():
     message = format_compact_briefing(
         [

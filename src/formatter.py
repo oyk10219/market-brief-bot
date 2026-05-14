@@ -65,7 +65,7 @@ def _compact_summary(summary):
         lines.append("- %s" % line)
         if len(lines) >= 6:
             break
-    return "\n".join(lines)
+    return "\n\n".join(lines)
 
 
 def _topic_candidates(summary, news_items, limit=6):
