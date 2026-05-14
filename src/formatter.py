@@ -172,11 +172,13 @@ def format_compact_briefing(
     else:
         lines.extend(["## 주요 기사", "수집된 뉴스가 없습니다.", ""])
 
+    lines.append("## DART 공시")
     if disclosures:
-        lines.append("## DART 공시")
         for index, item in enumerate(disclosures[:links_per_section], start=1):
             lines.append(_format_disclosure(index, item))
-        lines.append("")
+    else:
+        lines.append("최근 관심종목 공시는 없습니다.")
+    lines.append("")
 
     lines.append(DISCLAIMER)
     return "\n".join(lines).strip()

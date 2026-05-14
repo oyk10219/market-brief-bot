@@ -134,6 +134,15 @@ OpenDART에서 인증키를 발급받아 `DART_API_KEY`에 등록합니다.
 DART_TARGET_COMPANIES=싸이토젠,경인양행
 ```
 
+공시는 OpenDART 회사코드를 조회한 뒤 회사별로 직접 조회합니다. 회사코드 목록은 최초 실행 시 `data/dart_corp_codes.json`에 캐시되며 Git에는 올라가지 않습니다.
+
+최근 기간에 관심종목 공시가 없으면 텔레그램에는 아래처럼 표시됩니다.
+
+```text
+## DART 공시
+최근 관심종목 공시는 없습니다.
+```
+
 ## GitHub Secrets 등록
 
 GitHub 저장소 `market-brief-bot`에서 아래 메뉴로 이동합니다.

@@ -83,6 +83,13 @@ def test_format_compact_briefing_contains_watchlist_summary():
     assert "- 경인양행: 수집된 뉴스/공시 없음" in message
 
 
+def test_format_compact_briefing_shows_empty_dart_section():
+    message = format_compact_briefing([], disclosures=[])
+
+    assert "## DART 공시" in message
+    assert "최근 관심종목 공시는 없습니다." in message
+
+
 def test_split_message_keeps_limit():
     message = "\n".join(["긴 문장 %s" % index for index in range(100)])
 

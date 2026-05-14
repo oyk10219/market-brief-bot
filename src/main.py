@@ -191,7 +191,11 @@ def run(argv=None):
         if config.dart_api_key and config.dart_target_companies:
             try:
                 logger.info("OpenDART 공시 수집을 시작합니다.")
-                dart_fetcher = DartFetcher(config.dart_api_key, timeout=config.request_timeout)
+                dart_fetcher = DartFetcher(
+                    config.dart_api_key,
+                    timeout=config.request_timeout,
+                    corp_code_cache_path=config.data_dir / "dart_corp_codes.json",
+                )
                 disclosures = dart_fetcher.fetch_recent_disclosures(
                     target_companies=config.dart_target_companies,
                     lookback_days=config.dart_lookback_days,
