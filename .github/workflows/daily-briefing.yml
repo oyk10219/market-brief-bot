@@ -2,9 +2,6 @@ name: Daily Market Briefing
 
 on:
   workflow_dispatch:
-  schedule:
-    # KST weekday 08:30 = UTC previous day 23:30, Sunday-Thursday.
-    - cron: "30 23 * * 0-4"
 
 jobs:
   briefing:

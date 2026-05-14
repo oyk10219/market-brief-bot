@@ -6,6 +6,7 @@ from pathlib import Path
 NEWS_SECTIONS = [
     {"section": "한국 증시 주요 뉴스", "query": "한국 증시", "display": 5},
     {"section": "미국 증시 주요 뉴스", "query": "미국 증시 뉴욕증시", "display": 5},
+    {"section": "IT 관련 뉴스", "query": "IT 기술 AI 소프트웨어 클라우드 보안", "display": 5},
     {"section": "오늘 강한 테마 후보", "query": "증시 강한 테마", "display": 5},
     {"section": "반도체 관련 뉴스", "query": "반도체 주식", "display": 5},
     {"section": "바이오 관련 뉴스", "query": "바이오 주식", "display": 5},
