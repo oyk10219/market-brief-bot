@@ -39,6 +39,8 @@ class AppConfig:
     article_fetch_per_section: int
     article_fetch_max_chars: int
     article_fetch_timeout: int
+    telegram_detail_mode: str
+    telegram_links_per_section: int
 
     def missing_required(self, send_telegram=True):
         missing = []
@@ -130,4 +132,6 @@ def load_config():
         article_fetch_per_section=_get_int("ARTICLE_FETCH_PER_SECTION", 3),
         article_fetch_max_chars=_get_int("ARTICLE_FETCH_MAX_CHARS", 2500),
         article_fetch_timeout=_get_int("ARTICLE_FETCH_TIMEOUT", 10),
+        telegram_detail_mode=os.getenv("TELEGRAM_DETAIL_MODE", "compact").strip().lower() or "compact",
+        telegram_links_per_section=_get_int("TELEGRAM_LINKS_PER_SECTION", 2),
     )

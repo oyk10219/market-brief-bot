@@ -6,7 +6,7 @@ from .config import NEWS_SECTIONS, load_config
 from .article_fetcher import enrich_news_with_articles
 from .dart_fetcher import DartFetcher
 from .database import BriefingDatabase
-from .formatter import format_briefing, split_message
+from .formatter import format_briefing, format_compact_briefing, split_message
 from .logger import setup_logger
 from .news_fetcher import NewsFetcher
 from .summarizer import summarize_with_codex
@@ -169,11 +169,21 @@ def run(argv=None):
             else:
                 logger.warning("지원하지 않는 SUMMARY_PROVIDER입니다: %s", config.summary_provider)
 
-        briefing = format_briefing(news_items, disclosures, generated_at=generated_at, summary=summary)
-        messages = split_message(briefing)
+        detailed_briefing = format_briefing(news_items, disclosures, generated_at=generated_at, summary=summary)
+        if config.telegram_detail_mode == "compact":
+            telegram_briefing = format_compact_briefing(
+                news_items,
+                disclosures,
+                generated_at=generated_at,
+                summary=summary,
+                links_per_section=config.telegram_links_per_section,
+            )
+        else:
+            telegram_briefing = detailed_briefing
+        messages = split_message(telegram_briefing)
 
         if args.save_md:
-            path = _save_markdown(config.output_dir, briefing, generated_at)
+            path = _save_markdown(config.output_dir, detailed_briefing, generated_at)
             logger.info("Markdown 저장 완료: %s", path)
 
         if args.dry_run or args.no_telegram:
