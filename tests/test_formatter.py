@@ -1,4 +1,4 @@
-from src.formatter import DISCLAIMER, format_briefing, format_compact_briefing, split_message
+from src.formatter import DISCLAIMER, classify_disclosure, format_briefing, format_compact_briefing, split_message
 
 
 def test_format_briefing_contains_disclaimer():
@@ -88,6 +88,38 @@ def test_format_compact_briefing_shows_empty_dart_section():
 
     assert "## DART 공시" in message
     assert "최근 관심종목 공시는 없습니다." in message
+
+
+def test_classify_disclosure_marks_caution():
+    result = classify_disclosure({"report_name": "주요사항보고서(유상증자결정)"})
+
+    assert result["label"] == "주의"
+
+
+def test_classify_disclosure_marks_check():
+    result = classify_disclosure({"report_name": "단일판매ㆍ공급계약체결"})
+
+    assert result["label"] == "체크"
+
+
+def test_format_compact_briefing_puts_important_disclosures_near_top():
+    message = format_compact_briefing(
+        [],
+        disclosures=[
+            {
+                "corp_name": "싸이토젠",
+                "report_name": "주요사항보고서(전환사채권발행결정)",
+                "received_at": "20260514",
+                "link": "https://dart.fss.or.kr/dsaf001/main.do?rcpNo=1",
+            }
+        ],
+        summary="- 테스트 요약",
+    )
+
+    assert "## 중요 공시 체크" in message
+    assert "- [주의] 싸이토젠: 주요사항보고서(전환사채권발행결정)" in message
+    assert message.index("## 중요 공시 체크") < message.index("## 핵심 요약")
+    assert "## DART 공시" in message
 
 
 def test_split_message_keeps_limit():

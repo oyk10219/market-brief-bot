@@ -3,6 +3,46 @@ from .utils import now_kst
 
 DISCLAIMER = "※ 본 브리핑은 투자 추천이 아닌 뉴스/공시 정보 정리입니다."
 
+IMPORTANT_DISCLOSURE_RULES = [
+    (
+        "주의",
+        [
+            "유상증자",
+            "전환사채",
+            "전환사채권",
+            "신주인수권부사채",
+            "최대주주변경",
+            "거래정지",
+            "주권매매거래정지",
+            "불성실공시",
+            "감사의견",
+            "상장폐지",
+            "관리종목",
+            "횡령",
+            "배임",
+            "감자",
+            "회생절차",
+        ],
+    ),
+    (
+        "체크",
+        [
+            "단일판매공급계약",
+            "단일판매ㆍ공급계약",
+            "단일판매·공급계약",
+            "공급계약",
+            "자기주식취득",
+            "자기주식소각",
+            "자기주식 취득",
+            "자기주식 소각",
+            "현금배당",
+            "배당결정",
+            "무상증자",
+            "수주",
+        ],
+    ),
+]
+
 
 def _format_news_item(index, item):
     source = item.get("source") or "출처 미상"
@@ -26,6 +66,50 @@ def _format_disclosure(index, item):
     if link:
         lines.append("   링크: %s" % link)
     return "\n".join(lines)
+
+
+def _compact_text(value):
+    text = str(value or "").lower()
+    for token in (" ", "\t", "\n", "\r", "ㆍ", "·", "-", "_", "(", ")", "[", "]"):
+        text = text.replace(token, "")
+    return text
+
+
+def classify_disclosure(item):
+    report_name = item.get("report_name") or ""
+    normalized_report = _compact_text(report_name)
+    if not normalized_report:
+        return None
+
+    for label, keywords in IMPORTANT_DISCLOSURE_RULES:
+        for keyword in keywords:
+            if _compact_text(keyword) in normalized_report:
+                return {
+                    "label": label,
+                    "keyword": keyword,
+                    "corp_name": item.get("corp_name") or "회사명 미상",
+                    "report_name": report_name,
+                    "link": item.get("link") or "",
+                }
+    return None
+
+
+def _important_disclosure_lines(disclosures, limit=5):
+    alerts = []
+    for item in disclosures or []:
+        alert = classify_disclosure(item)
+        if alert:
+            alerts.append(alert)
+        if len(alerts) >= limit:
+            break
+
+    lines = []
+    for alert in alerts:
+        line = "- [%s] %s: %s" % (alert["label"], alert["corp_name"], alert["report_name"])
+        lines.append(line)
+        if alert["link"]:
+            lines.append("  %s" % alert["link"])
+    return lines
 
 
 def _format_short_news_item(index, item):
@@ -146,6 +230,12 @@ def format_compact_briefing(
         "",
     ]
 
+    important_disclosures = _important_disclosure_lines(disclosures)
+    if important_disclosures:
+        lines.extend(["## 중요 공시 체크"])
+        lines.extend(important_disclosures)
+        lines.append("")
+
     compact_summary = _compact_summary(summary)
     if compact_summary:
         lines.extend(["## 핵심 요약", compact_summary, ""])
@@ -193,6 +283,12 @@ def format_briefing(news_items, disclosures=None, generated_at=None, summary=Non
         "생성 시각: %s" % generated_at.strftime("%Y-%m-%d %H:%M"),
         "",
     ]
+
+    important_disclosures = _important_disclosure_lines(disclosures)
+    if important_disclosures:
+        lines.extend(["## 중요 공시 체크"])
+        lines.extend(important_disclosures)
+        lines.append("")
 
     if summary:
         lines.append("## 오늘의 요약")
