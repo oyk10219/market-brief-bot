@@ -38,7 +38,7 @@ def test_load_config_reads_send_channels(monkeypatch):
 
 
 def test_load_config_defaults_to_telegram_channel(monkeypatch):
-    monkeypatch.delenv("SEND_CHANNELS", raising=False)
+    monkeypatch.setenv("SEND_CHANNELS", "")
 
     config = load_config()
 

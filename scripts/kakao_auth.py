@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import webbrowser
+import argparse
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -55,6 +56,10 @@ class CallbackHandler(BaseHTTPRequestHandler):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Kakao OAuth refresh token helper")
+    parser.add_argument("--no-browser", action="store_true", help="브라우저를 자동으로 열지 않고 인증 URL만 출력합니다.")
+    args = parser.parse_args()
+
     load_dotenv()
 
     rest_api_key = os.getenv("KAKAO_REST_API_KEY", "").strip()
@@ -86,7 +91,10 @@ def main():
 
     server = HTTPServer((host, port), CallbackHandler)
     server.timeout = 1
-    webbrowser.open(auth_url)
+    if args.no_browser:
+        print("브라우저 자동 실행을 건너뜁니다. 위 URL을 Edge 등 다른 브라우저에 붙여넣어 주세요.")
+    else:
+        webbrowser.open(auth_url)
 
     started_at = time.time()
     while not CallbackHandler.auth_code and not CallbackHandler.auth_error:
