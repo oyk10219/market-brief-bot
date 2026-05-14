@@ -128,7 +128,7 @@ def run(argv=None):
                 _record_error(db, run_id, logger, "article_fetch", exc)
                 logger.warning("기사 본문 추출에 실패해 검색 요약 기준으로 진행합니다.")
 
-        if config.dart_api_key:
+        if config.dart_api_key and config.dart_target_companies:
             try:
                 logger.info("OpenDART 공시 수집을 시작합니다.")
                 dart_fetcher = DartFetcher(config.dart_api_key, timeout=config.request_timeout)
@@ -141,7 +141,10 @@ def run(argv=None):
                 errors += 1
                 _record_error(db, run_id, logger, "dart", exc)
         else:
-            logger.info("DART_API_KEY가 없어 공시 수집 단계를 건너뜁니다.")
+            if not config.dart_api_key:
+                logger.info("DART_API_KEY가 없어 공시 수집 단계를 건너뜁니다.")
+            else:
+                logger.info("DART_TARGET_COMPANIES가 없어 공시 수집 단계를 건너뜁니다.")
 
         if not news_items and not disclosures:
             critical_failure = True

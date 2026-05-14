@@ -41,7 +41,7 @@ def _format_news_for_prompt(news_items):
 
 def _format_disclosures_for_prompt(disclosures):
     if not disclosures:
-        return "관심 종목 공시는 수집되지 않았습니다."
+        return "공시 데이터는 수집되지 않았습니다."
 
     lines = []
     for index, item in enumerate(disclosures, start=1):
@@ -71,7 +71,7 @@ def build_codex_prompt(news_items, disclosures, generated_at):
         "- 각 bullet은 한 문장으로 작성하고 너무 길게 쓰지 마세요.\n"
         "- 본문추출이 있는 기사는 본문 내용을 우선 근거로 요약해 주세요.\n"
         "- 본문추출이 없는 기사는 제목/검색요약만 근거로 하므로 그 한계를 감안해 주세요.\n"
-        "- 반복해서 등장하는 테마, 섹터, 관심 종목 흐름을 정리해 주세요.\n"
+        "- 반복해서 등장하는 테마와 섹터 흐름을 정리해 주세요.\n"
         "- 공시가 없으면 공시가 확인되지 않았다고만 써 주세요.\n"
         "- 매수/매도 추천, 목표가, 손절가, 확정적 수익 표현은 절대 쓰지 마세요.\n"
         "- 투자 판단이 아니라 정보 정리 관점으로만 작성해 주세요.\n"

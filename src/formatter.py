@@ -99,20 +99,6 @@ def _topic_candidates(summary, news_items, limit=6):
     return topics
 
 
-def _interest_lines(news_items, disclosures):
-    lines = []
-    for company in ["싸이토젠", "경인양행"]:
-        news_count = sum(1 for item in news_items if company in (item.get("title") or ""))
-        disclosure_count = sum(1 for item in disclosures if company in (item.get("corp_name") or ""))
-        if disclosure_count:
-            lines.append("- %s: DART 공시 %s건 확인" % (company, disclosure_count))
-        elif news_count:
-            lines.append("- %s: 관련 뉴스 %s건, 신규 관심 공시는 없음" % (company, news_count))
-        else:
-            lines.append("- %s: 특이 뉴스/공시 없음" % company)
-    return lines
-
-
 def format_compact_briefing(
     news_items,
     disclosures=None,
@@ -138,12 +124,6 @@ def format_compact_briefing(
     if topics:
         lines.append("## 오늘 볼 테마")
         lines.extend("- %s" % topic for topic in topics)
-        lines.append("")
-
-    interest_lines = _interest_lines(news_items, disclosures)
-    if interest_lines:
-        lines.append("## 관심 종목/공시")
-        lines.extend(interest_lines)
         lines.append("")
 
     if news_items:
@@ -195,7 +175,7 @@ def format_briefing(news_items, disclosures=None, generated_at=None, summary=Non
         for index, item in enumerate(disclosures, start=1):
             lines.append(_format_disclosure(index, item))
     else:
-        lines.append("수집된 관심 종목 공시가 없습니다.")
+        lines.append("수집된 공시가 없습니다.")
 
     lines.extend(["", DISCLAIMER])
     return "\n".join(lines).strip()

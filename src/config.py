@@ -10,8 +10,6 @@ NEWS_SECTIONS = [
     {"section": "오늘 강한 테마 후보", "query": "증시 강한 테마", "display": 5},
     {"section": "반도체 관련 뉴스", "query": "반도체 주식", "display": 5},
     {"section": "바이오 관련 뉴스", "query": "바이오 주식", "display": 5},
-    {"section": "싸이토젠 뉴스", "query": "싸이토젠", "display": 5},
-    {"section": "경인양행 뉴스", "query": "경인양행", "display": 5},
 ]
 
 
@@ -105,7 +103,7 @@ def load_config():
     logs_dir = base_dir / "logs"
     output_dir = base_dir / "output"
 
-    target_companies = os.getenv("DART_TARGET_COMPANIES", "싸이토젠,경인양행")
+    target_companies = os.getenv("DART_TARGET_COMPANIES", "")
     telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
     telegram_chat_ids_raw = os.getenv("TELEGRAM_CHAT_IDS", "").strip() or telegram_chat_id
 
