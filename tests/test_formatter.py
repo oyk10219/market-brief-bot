@@ -20,6 +20,13 @@ def test_format_briefing_contains_disclaimer():
     assert DISCLAIMER in message
 
 
+def test_format_briefing_contains_summary():
+    message = format_briefing([], disclosures=[], summary="- 테스트 요약")
+
+    assert "## 오늘의 요약" in message
+    assert "- 테스트 요약" in message
+
+
 def test_split_message_keeps_limit():
     message = "\n".join(["긴 문장 %s" % index for index in range(100)])
 

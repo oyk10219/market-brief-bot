@@ -31,6 +31,9 @@ class AppConfig:
     request_timeout: int
     dart_lookback_days: int
     dart_target_companies: list
+    summary_provider: str
+    codex_model: str
+    codex_timeout_seconds: int
 
     def missing_required(self, send_telegram=True):
         missing = []
@@ -108,4 +111,7 @@ def load_config():
         request_timeout=_get_int("REQUEST_TIMEOUT", 15),
         dart_lookback_days=_get_int("DART_LOOKBACK_DAYS", 7),
         dart_target_companies=_split_csv(target_companies),
+        summary_provider=os.getenv("SUMMARY_PROVIDER", "").strip().lower(),
+        codex_model=os.getenv("CODEX_MODEL", "gpt-5.2").strip() or "gpt-5.2",
+        codex_timeout_seconds=_get_int("CODEX_TIMEOUT_SECONDS", 300),
     )

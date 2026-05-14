@@ -8,6 +8,7 @@ from .database import BriefingDatabase
 from .formatter import format_briefing, split_message
 from .logger import setup_logger
 from .news_fetcher import NewsFetcher
+from .summarizer import summarize_with_codex
 from .telegram_sender import TelegramSender
 from .utils import deduplicate_news, mask_secret, now_kst
 
@@ -19,6 +20,7 @@ def parse_args(argv=None):
     parser.add_argument("--debug", action="store_true", help="상세 로그를 출력합니다.")
     parser.add_argument("--keyword", help="지정한 키워드 하나만 테스트합니다.")
     parser.add_argument("--save-md", action="store_true", help="output/briefing_YYYYMMDD.md 파일을 저장합니다.")
+    parser.add_argument("--no-summary", action="store_true", help="요약 생성을 건너뜁니다.")
     return parser.parse_args(argv)
 
 
@@ -66,6 +68,7 @@ def run(argv=None):
     news_items = []
     disclosures = []
     messages = []
+    summary = ""
 
     try:
         send_telegram = not args.dry_run and not args.no_telegram
@@ -120,7 +123,29 @@ def run(argv=None):
             critical_failure = True
             logger.error("전송할 뉴스/공시 데이터가 없습니다.")
 
-        briefing = format_briefing(news_items, disclosures, generated_at=generated_at)
+        if not args.no_summary and config.summary_provider:
+            if config.summary_provider == "codex":
+                try:
+                    logger.info("Codex CLI 요약 생성을 시작합니다.")
+                    summary_result = summarize_with_codex(
+                        news_items,
+                        disclosures,
+                        config.output_dir,
+                        generated_at,
+                        model=config.codex_model or None,
+                        timeout=config.codex_timeout_seconds,
+                        cwd=config.base_dir,
+                    )
+                    summary = summary_result.summary
+                    logger.info("Codex CLI 요약 생성 완료: %s", summary_result.output_path)
+                except Exception as exc:
+                    errors += 1
+                    _record_error(db, run_id, logger, "summary:codex", exc)
+                    logger.warning("요약 생성에 실패해 기존 뉴스 목록만 전송합니다.")
+            else:
+                logger.warning("지원하지 않는 SUMMARY_PROVIDER입니다: %s", config.summary_provider)
+
+        briefing = format_briefing(news_items, disclosures, generated_at=generated_at, summary=summary)
         messages = split_message(briefing)
 
         if args.save_md:

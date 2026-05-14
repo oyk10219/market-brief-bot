@@ -40,7 +40,7 @@ def group_news_by_section(news_items):
     return grouped
 
 
-def format_briefing(news_items, disclosures=None, generated_at=None):
+def format_briefing(news_items, disclosures=None, generated_at=None, summary=None):
     generated_at = generated_at or now_kst()
     disclosures = disclosures or []
 
@@ -49,6 +49,11 @@ def format_briefing(news_items, disclosures=None, generated_at=None):
         "생성 시각: %s" % generated_at.strftime("%Y-%m-%d %H:%M"),
         "",
     ]
+
+    if summary:
+        lines.append("## 오늘의 요약")
+        lines.append(summary.strip())
+        lines.append("")
 
     if news_items:
         for section, items in group_news_by_section(news_items):
