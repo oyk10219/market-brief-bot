@@ -21,6 +21,7 @@ class AppConfig:
     naver_client_secret: str
     telegram_bot_token: str
     telegram_chat_id: str
+    telegram_chat_ids: list
     dart_api_key: str
     data_dir: Path
     logs_dir: Path
@@ -39,8 +40,8 @@ class AppConfig:
             missing.append("NAVER_CLIENT_SECRET")
         if send_telegram and not self.telegram_bot_token:
             missing.append("TELEGRAM_BOT_TOKEN")
-        if send_telegram and not self.telegram_chat_id:
-            missing.append("TELEGRAM_CHAT_ID")
+        if send_telegram and not self.telegram_chat_ids:
+            missing.append("TELEGRAM_CHAT_ID or TELEGRAM_CHAT_IDS")
         return missing
 
 
@@ -63,7 +64,20 @@ def _get_int(name, default):
 
 
 def _split_csv(value):
+    if not value:
+        return []
     return [part.strip() for part in value.split(",") if part.strip()]
+
+
+def _unique(values):
+    seen = set()
+    result = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
 
 
 def load_config():
@@ -75,13 +89,16 @@ def load_config():
     output_dir = base_dir / "output"
 
     target_companies = os.getenv("DART_TARGET_COMPANIES", "싸이토젠,경인양행")
+    telegram_chat_id = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+    telegram_chat_ids_raw = os.getenv("TELEGRAM_CHAT_IDS", "").strip() or telegram_chat_id
 
     return AppConfig(
         base_dir=base_dir,
         naver_client_id=os.getenv("NAVER_CLIENT_ID", "").strip(),
         naver_client_secret=os.getenv("NAVER_CLIENT_SECRET", "").strip(),
         telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN", "").strip(),
-        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", "").strip(),
+        telegram_chat_id=telegram_chat_id,
+        telegram_chat_ids=_unique(_split_csv(telegram_chat_ids_raw)),
         dart_api_key=os.getenv("DART_API_KEY", "").strip(),
         data_dir=data_dir,
         logs_dir=logs_dir,

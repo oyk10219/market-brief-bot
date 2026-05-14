@@ -54,6 +54,7 @@ NAVER_CLIENT_ID=your_naver_client_id
 NAVER_CLIENT_SECRET=your_naver_client_secret
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_CHAT_ID=your_telegram_chat_id
+TELEGRAM_CHAT_IDS=
 DART_API_KEY=your_dart_api_key
 ```
 
@@ -69,7 +70,8 @@ python -m src.main --no-telegram --save-md
 ## 환경변수가 없을 때 동작
 
 - `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`이 없으면 뉴스 수집을 할 수 없어 실행이 실패합니다.
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`가 없으면 실제 전송 실행은 실패합니다.
+- `TELEGRAM_BOT_TOKEN`이 없으면 실제 전송 실행은 실패합니다.
+- `TELEGRAM_CHAT_ID` 또는 `TELEGRAM_CHAT_IDS`가 없으면 실제 전송 실행은 실패합니다.
 - 단, `--dry-run` 또는 `--no-telegram`에서는 텔레그램 값 없이 메시지 생성 테스트가 가능합니다.
 - `DART_API_KEY`가 없으면 공시 수집 단계만 건너뜁니다.
 
@@ -86,6 +88,18 @@ https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getUpdates
 ```
 
 확인한 `chat.id` 값을 `TELEGRAM_CHAT_ID`에 등록합니다.
+
+여러 사람에게 개인 메시지로 보내려면 각 사용자가 먼저 봇에게 `/start` 또는 아무 메시지를 보내야 합니다. 이후 각 사용자의 `chat.id`를 콤마로 연결해 등록합니다.
+
+```env
+TELEGRAM_CHAT_ID=123456789,987654321,555555555
+```
+
+또는 아래처럼 별도 변수에 등록할 수 있습니다. `TELEGRAM_CHAT_IDS`가 있으면 이 값을 우선 사용합니다.
+
+```env
+TELEGRAM_CHAT_IDS=123456789,987654321,555555555
+```
 
 ## Naver API 키
 
@@ -128,7 +142,10 @@ Settings > Secrets and variables > Actions > New repository secret
 
 선택 Secrets:
 
+- `TELEGRAM_CHAT_IDS`
 - `DART_API_KEY`
+
+여러 개인 수신자에게 보내려면 `TELEGRAM_CHAT_ID` 하나에 콤마로 여러 값을 넣거나, `TELEGRAM_CHAT_IDS` Secret을 추가해서 콤마로 여러 chat_id를 넣으면 됩니다.
 
 Secrets가 누락되면 GitHub Actions `Run` 단계에서 어떤 값이 빠졌는지 명확히 출력하고 실패합니다.
 

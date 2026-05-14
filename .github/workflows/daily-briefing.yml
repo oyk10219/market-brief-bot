@@ -30,15 +30,20 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
         run: |
           missing=0
-          for name in NAVER_CLIENT_ID NAVER_CLIENT_SECRET TELEGRAM_BOT_TOKEN TELEGRAM_CHAT_ID; do
+          for name in NAVER_CLIENT_ID NAVER_CLIENT_SECRET TELEGRAM_BOT_TOKEN; do
             if [ -z "${!name}" ]; then
               echo "::error title=Missing secret::$name is required"
               missing=1
             fi
           done
+          if [ -z "$TELEGRAM_CHAT_ID" ] && [ -z "$TELEGRAM_CHAT_IDS" ]; then
+            echo "::error title=Missing secret::TELEGRAM_CHAT_ID or TELEGRAM_CHAT_IDS is required"
+            missing=1
+          fi
           if [ "$missing" -ne 0 ]; then
             exit 1
           fi

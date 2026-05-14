@@ -4,15 +4,14 @@ import requests
 class TelegramSender:
     TELEGRAM_API_URL = "https://api.telegram.org/bot%s/sendMessage"
 
-    def __init__(self, bot_token, chat_id, timeout=15):
+    def __init__(self, bot_token, timeout=15):
         self.bot_token = bot_token
-        self.chat_id = chat_id
         self.timeout = timeout
 
-    def send_message(self, text):
+    def send_message(self, chat_id, text):
         url = self.TELEGRAM_API_URL % self.bot_token
         payload = {
-            "chat_id": self.chat_id,
+            "chat_id": chat_id,
             "text": text,
             "disable_web_page_preview": False,
         }
@@ -25,8 +24,8 @@ class TelegramSender:
             raise RuntimeError("Telegram Bot API 오류: %s" % payload)
         return payload.get("result", {})
 
-    def send_messages(self, messages):
+    def send_messages(self, chat_id, messages):
         results = []
         for message in messages:
-            results.append(self.send_message(message))
+            results.append(self.send_message(chat_id, message))
         return results

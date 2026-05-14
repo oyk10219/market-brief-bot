@@ -9,7 +9,7 @@ from .formatter import format_briefing, split_message
 from .logger import setup_logger
 from .news_fetcher import NewsFetcher
 from .telegram_sender import TelegramSender
-from .utils import deduplicate_news, now_kst
+from .utils import deduplicate_news, mask_secret, now_kst
 
 
 def parse_args(argv=None):
@@ -41,6 +41,10 @@ def _save_markdown(output_dir, message, generated_at):
     path = output_dir / ("briefing_%s.md" % generated_at.strftime("%Y%m%d"))
     path.write_text(message + "\n", encoding="utf-8")
     return path
+
+
+def _masked_chat_id(chat_id):
+    return mask_secret(chat_id, visible=4)
 
 
 def run(argv=None):
@@ -130,29 +134,56 @@ def run(argv=None):
                 print(message)
                 db.record_sent_message(run_id, index, message, "DRY_RUN")
         else:
-            try:
-                logger.info("텔레그램 전송을 시작합니다. 메시지 %s개", len(messages))
-                sender = TelegramSender(
-                    config.telegram_bot_token,
-                    config.telegram_chat_id,
-                    timeout=config.request_timeout,
-                )
-                results = sender.send_messages(messages)
-                for index, result in enumerate(results, start=1):
-                    db.record_sent_message(
-                        run_id,
-                        index,
-                        messages[index - 1],
-                        "SENT",
-                        telegram_message_id=str(result.get("message_id", "")),
+            logger.info(
+                "텔레그램 전송을 시작합니다. 수신자 %s명, 메시지 %s개",
+                len(config.telegram_chat_ids),
+                len(messages),
+            )
+            sender = TelegramSender(
+                config.telegram_bot_token,
+                timeout=config.request_timeout,
+            )
+            telegram_failures = 0
+            for recipient_index, chat_id in enumerate(config.telegram_chat_ids, start=1):
+                masked_chat_id = _masked_chat_id(chat_id)
+                try:
+                    logger.info(
+                        "텔레그램 수신자 %s/%s 전송 시작: %s",
+                        recipient_index,
+                        len(config.telegram_chat_ids),
+                        masked_chat_id,
                     )
-                logger.info("텔레그램 전송 완료")
-            except Exception as exc:
-                errors += 1
+                    results = sender.send_messages(chat_id, messages)
+                    for index, result in enumerate(results, start=1):
+                        db.record_sent_message(
+                            run_id,
+                            index,
+                            messages[index - 1],
+                            "SENT",
+                            telegram_message_id=str(result.get("message_id", "")),
+                        )
+                    logger.info(
+                        "텔레그램 수신자 %s/%s 전송 완료",
+                        recipient_index,
+                        len(config.telegram_chat_ids),
+                    )
+                except Exception as exc:
+                    errors += 1
+                    telegram_failures += 1
+                    _record_error(db, run_id, logger, "telegram:%s" % masked_chat_id, exc)
+                    for index, message in enumerate(messages, start=1):
+                        db.record_sent_message(run_id, index, message, "FAILED")
+
+            if telegram_failures == len(config.telegram_chat_ids):
                 critical_failure = True
-                _record_error(db, run_id, logger, "telegram", exc)
-                for index, message in enumerate(messages, start=1):
-                    db.record_sent_message(run_id, index, message, "FAILED")
+            elif telegram_failures:
+                logger.warning(
+                    "텔레그램 일부 수신자 전송 실패: %s/%s명",
+                    telegram_failures,
+                    len(config.telegram_chat_ids),
+                )
+            else:
+                logger.info("텔레그램 전송 완료")
 
         if critical_failure:
             status = "FAILED"
@@ -165,7 +196,7 @@ def run(argv=None):
             run_id,
             status,
             item_count=len(news_items) + len(disclosures),
-            message_count=len(messages),
+            message_count=len(messages) * (len(config.telegram_chat_ids) if send_telegram else 1),
         )
 
         if critical_failure:
