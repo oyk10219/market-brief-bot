@@ -22,7 +22,8 @@ def _format_news_for_prompt(news_items):
                 "%s. 제목: %s\n"
                 "   출처: %s\n"
                 "   날짜: %s\n"
-                "   요약: %s\n"
+                "   검색요약: %s\n"
+                "   본문추출: %s\n"
                 "   링크: %s"
                 % (
                     index,
@@ -30,6 +31,7 @@ def _format_news_for_prompt(news_items):
                     item.get("source") or "",
                     item.get("published_at") or "",
                     item.get("description") or "",
+                    item.get("article_text") or "본문 추출 없음",
                     item.get("original_link") or item.get("link") or "",
                 )
             )
@@ -66,7 +68,8 @@ def build_codex_prompt(news_items, disclosures, generated_at):
         "요청:\n"
         "- 텔레그램 브리핑 상단에 넣을 한국어 요약문만 작성해 주세요.\n"
         "- 5~8개 bullet로 간결하게 작성해 주세요.\n"
-        "- 기사 본문 전문이 아니라 제목/검색 요약 snippet만 근거로 한다는 한계를 반영해 주세요.\n"
+        "- 본문추출이 있는 기사는 본문 내용을 우선 근거로 요약해 주세요.\n"
+        "- 본문추출이 없는 기사는 제목/검색요약만 근거로 하므로 그 한계를 감안해 주세요.\n"
         "- 반복해서 등장하는 테마, 섹터, 관심 종목 흐름을 정리해 주세요.\n"
         "- 공시가 없으면 공시가 확인되지 않았다고만 써 주세요.\n"
         "- 매수/매도 추천, 목표가, 손절가, 확정적 수익 표현은 절대 쓰지 마세요.\n"

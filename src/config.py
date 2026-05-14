@@ -35,6 +35,10 @@ class AppConfig:
     summary_provider: str
     codex_model: str
     codex_timeout_seconds: int
+    article_fetch_enabled: bool
+    article_fetch_per_section: int
+    article_fetch_max_chars: int
+    article_fetch_timeout: int
 
     def missing_required(self, send_telegram=True):
         missing = []
@@ -65,6 +69,13 @@ def _get_int(name, default):
         return int(raw_value)
     except ValueError:
         return default
+
+
+def _get_bool(name, default=False):
+    raw_value = os.getenv(name)
+    if raw_value is None or raw_value == "":
+        return default
+    return raw_value.strip().lower() in ("1", "true", "yes", "y", "on")
 
 
 def _split_csv(value):
@@ -115,4 +126,8 @@ def load_config():
         summary_provider=os.getenv("SUMMARY_PROVIDER", "").strip().lower(),
         codex_model=os.getenv("CODEX_MODEL", "gpt-5.2").strip() or "gpt-5.2",
         codex_timeout_seconds=_get_int("CODEX_TIMEOUT_SECONDS", 300),
+        article_fetch_enabled=_get_bool("ARTICLE_FETCH_ENABLED", True),
+        article_fetch_per_section=_get_int("ARTICLE_FETCH_PER_SECTION", 3),
+        article_fetch_max_chars=_get_int("ARTICLE_FETCH_MAX_CHARS", 2500),
+        article_fetch_timeout=_get_int("ARTICLE_FETCH_TIMEOUT", 10),
     )

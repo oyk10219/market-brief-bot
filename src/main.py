@@ -3,6 +3,7 @@ import sys
 import traceback
 
 from .config import NEWS_SECTIONS, load_config
+from .article_fetcher import enrich_news_with_articles
 from .dart_fetcher import DartFetcher
 from .database import BriefingDatabase
 from .formatter import format_briefing, split_message
@@ -103,6 +104,29 @@ def run(argv=None):
         news_items = deduplicate_news(news_items)
         db.insert_news_items(news_items)
         logger.info("뉴스 수집 완료: %s건", len(news_items))
+
+        if config.article_fetch_enabled and news_items:
+            try:
+                logger.info(
+                    "기사 본문 추출을 시작합니다. 섹션별 최대 %s건",
+                    config.article_fetch_per_section,
+                )
+                article_result = enrich_news_with_articles(
+                    news_items,
+                    per_section=config.article_fetch_per_section,
+                    timeout=config.article_fetch_timeout,
+                    max_chars=config.article_fetch_max_chars,
+                    logger=logger,
+                )
+                logger.info(
+                    "기사 본문 추출 완료: 성공 %s건, 실패 %s건",
+                    article_result["enriched"],
+                    article_result["failed"],
+                )
+            except Exception as exc:
+                errors += 1
+                _record_error(db, run_id, logger, "article_fetch", exc)
+                logger.warning("기사 본문 추출에 실패해 검색 요약 기준으로 진행합니다.")
 
         if config.dart_api_key:
             try:
