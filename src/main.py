@@ -255,6 +255,7 @@ def run(argv=None):
                         config.output_dir,
                         generated_at,
                         model=config.codex_model or None,
+                        reasoning_effort=config.codex_reasoning_effort or "low",
                         timeout=config.codex_timeout_seconds,
                         cwd=config.base_dir,
                     )

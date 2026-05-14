@@ -8,6 +8,11 @@ from pathlib import Path
 from .formatter import group_news_by_section
 
 
+SUMMARY_ITEMS_PER_SECTION = 3
+SUMMARY_DESCRIPTION_MAX_CHARS = 350
+SUMMARY_ARTICLE_MAX_CHARS = 1200
+
+
 @dataclass
 class SummaryResult:
     summary: str
@@ -15,11 +20,18 @@ class SummaryResult:
     output_path: object
 
 
+def _trim_text(value, max_chars):
+    text = " ".join((value or "").split())
+    if len(text) <= max_chars:
+        return text
+    return text[:max_chars].rstrip() + "..."
+
+
 def _format_news_for_prompt(news_items):
     lines = []
     for section, items in group_news_by_section(news_items):
         lines.append("## %s" % section)
-        for index, item in enumerate(items, start=1):
+        for index, item in enumerate(items[:SUMMARY_ITEMS_PER_SECTION], start=1):
             lines.append(
                 "%s. 제목: %s\n"
                 "   출처: %s\n"
@@ -32,11 +44,13 @@ def _format_news_for_prompt(news_items):
                     item.get("title") or "",
                     item.get("source") or "",
                     item.get("published_at") or "",
-                    item.get("description") or "",
-                    item.get("article_text") or "본문 추출 없음",
+                    _trim_text(item.get("description"), SUMMARY_DESCRIPTION_MAX_CHARS),
+                    _trim_text(item.get("article_text"), SUMMARY_ARTICLE_MAX_CHARS) or "본문 추출 없음",
                     item.get("original_link") or item.get("link") or "",
                 )
             )
+        if len(items) > SUMMARY_ITEMS_PER_SECTION:
+            lines.append("   ... additional items omitted for faster summary: %s" % (len(items) - SUMMARY_ITEMS_PER_SECTION))
         lines.append("")
     return "\n".join(lines).strip()
 
@@ -90,7 +104,7 @@ def build_codex_prompt(news_items, disclosures, generated_at):
     )
 
 
-def _codex_command(output_path, cwd, model=None):
+def _codex_command(output_path, cwd, model=None, reasoning_effort=None):
     if sys.platform.startswith("win"):
         codex_path = shutil.which("codex.exe") or shutil.which("codex")
     else:
@@ -108,6 +122,8 @@ def _codex_command(output_path, cwd, model=None):
         "-o",
         str(output_path),
     ]
+    if reasoning_effort:
+        args.extend(["-c", 'model_reasoning_effort="%s"' % reasoning_effort])
     if model:
         args.extend(["-m", model])
     args.append("-")
@@ -140,19 +156,7 @@ def _codex_environment(cwd):
         try:
             env["CODEX_HOME"] = _prepare_codex_home(codex_home)
         except OSError:
-            codex_home = None
-
-    if not codex_home:
-        if sys.platform.startswith("win"):
-            base_dir = env.get("LOCALAPPDATA") or env.get("TEMP") or str(Path(cwd))
-            preferred_home = Path(base_dir) / "MarketBriefBot" / "codex"
-        else:
-            preferred_home = Path(cwd) / ".codex-runtime"
-
-        try:
-            env["CODEX_HOME"] = _prepare_codex_home(preferred_home)
-        except OSError:
-            env["CODEX_HOME"] = _prepare_codex_home(Path(cwd) / ".codex-runtime")
+            env.pop("CODEX_HOME", None)
 
     for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
         value = env.get(name, "")
@@ -162,7 +166,16 @@ def _codex_environment(cwd):
     return env
 
 
-def summarize_with_codex(news_items, disclosures, output_dir, generated_at, model=None, timeout=300, cwd=None):
+def summarize_with_codex(
+    news_items,
+    disclosures,
+    output_dir,
+    generated_at,
+    model=None,
+    reasoning_effort=None,
+    timeout=300,
+    cwd=None,
+):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     stamp = generated_at.strftime("%Y%m%d_%H%M%S")
@@ -171,7 +184,12 @@ def summarize_with_codex(news_items, disclosures, output_dir, generated_at, mode
     prompt = build_codex_prompt(news_items, disclosures, generated_at)
     prompt_path.write_text(prompt, encoding="utf-8")
 
-    command = _codex_command(output_path, cwd or output_dir.parent, model=model)
+    command = _codex_command(
+        output_path,
+        cwd or output_dir.parent,
+        model=model,
+        reasoning_effort=reasoning_effort,
+    )
     completed = subprocess.run(
         command,
         input=prompt,

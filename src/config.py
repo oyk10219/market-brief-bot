@@ -44,6 +44,7 @@ class AppConfig:
     dart_target_companies: list
     summary_provider: str
     codex_model: str
+    codex_reasoning_effort: str
     codex_timeout_seconds: int
     article_fetch_enabled: bool
     article_fetch_per_section: int
@@ -158,7 +159,8 @@ def load_config():
         dart_target_companies=_split_csv(target_companies),
         summary_provider=os.getenv("SUMMARY_PROVIDER", "").strip().lower(),
         codex_model=os.getenv("CODEX_MODEL", "gpt-5.2").strip() or "gpt-5.2",
-        codex_timeout_seconds=_get_int("CODEX_TIMEOUT_SECONDS", 300),
+        codex_reasoning_effort=os.getenv("CODEX_REASONING_EFFORT", "low").strip().lower() or "low",
+        codex_timeout_seconds=_get_int("CODEX_TIMEOUT_SECONDS", 600),
         article_fetch_enabled=_get_bool("ARTICLE_FETCH_ENABLED", True),
         article_fetch_per_section=_get_int("ARTICLE_FETCH_PER_SECTION", 3),
         article_fetch_max_chars=_get_int("ARTICLE_FETCH_MAX_CHARS", 2500),
