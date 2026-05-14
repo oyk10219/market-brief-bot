@@ -1,7 +1,9 @@
+import os
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 from .formatter import group_news_by_section
 
@@ -89,7 +91,10 @@ def build_codex_prompt(news_items, disclosures, generated_at):
 
 
 def _codex_command(output_path, cwd, model=None):
-    codex_path = shutil.which("codex")
+    if sys.platform.startswith("win"):
+        codex_path = shutil.which("codex.exe") or shutil.which("codex")
+    else:
+        codex_path = shutil.which("codex")
     if not codex_path:
         raise RuntimeError("codex CLI를 찾을 수 없습니다.")
 
@@ -120,6 +125,43 @@ def _codex_command(output_path, cwd, model=None):
     return [codex_path] + args
 
 
+def _prepare_codex_home(codex_home):
+    codex_home_path = Path(codex_home)
+    codex_home_path.mkdir(parents=True, exist_ok=True)
+    (codex_home_path / "sessions").mkdir(parents=True, exist_ok=True)
+    (codex_home_path / "tmp").mkdir(parents=True, exist_ok=True)
+    return str(codex_home_path)
+
+
+def _codex_environment(cwd):
+    env = os.environ.copy()
+    codex_home = env.get("CODEX_HOME")
+    if codex_home:
+        try:
+            env["CODEX_HOME"] = _prepare_codex_home(codex_home)
+        except OSError:
+            codex_home = None
+
+    if not codex_home:
+        if sys.platform.startswith("win"):
+            base_dir = env.get("LOCALAPPDATA") or env.get("TEMP") or str(Path(cwd))
+            preferred_home = Path(base_dir) / "MarketBriefBot" / "codex"
+        else:
+            preferred_home = Path(cwd) / ".codex-runtime"
+
+        try:
+            env["CODEX_HOME"] = _prepare_codex_home(preferred_home)
+        except OSError:
+            env["CODEX_HOME"] = _prepare_codex_home(Path(cwd) / ".codex-runtime")
+
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        value = env.get(name, "")
+        if "127.0.0.1:9" in value or "localhost:9" in value:
+            env.pop(name, None)
+
+    return env
+
+
 def summarize_with_codex(news_items, disclosures, output_dir, generated_at, model=None, timeout=300, cwd=None):
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -133,6 +175,7 @@ def summarize_with_codex(news_items, disclosures, output_dir, generated_at, mode
     completed = subprocess.run(
         command,
         input=prompt,
+        env=_codex_environment(cwd or output_dir.parent),
         text=True,
         encoding="utf-8",
         errors="replace",

@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import traceback
 
@@ -25,6 +26,13 @@ def parse_args(argv=None):
     parser.add_argument("--save-md", action="store_true", help="output/briefing_YYYYMMDD.md 파일을 저장합니다.")
     parser.add_argument("--no-summary", action="store_true", help="요약 생성을 건너뜁니다.")
     return parser.parse_args(argv)
+
+
+def _clear_blocked_local_proxy_env():
+    for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"):
+        value = os.environ.get(name, "")
+        if "127.0.0.1:9" in value or "localhost:9" in value:
+            os.environ.pop(name, None)
 
 
 def _record_error(db, run_id, logger, stage, exc):
@@ -111,6 +119,7 @@ def _send_failure_alert(config, logger, status, generated_at, error_summaries, r
 
 
 def run(argv=None):
+    _clear_blocked_local_proxy_env()
     args = parse_args(argv)
     config = load_config()
     logger = setup_logger(debug=args.debug, log_file=config.log_file)
@@ -122,6 +131,8 @@ def run(argv=None):
     db = BriefingDatabase(config.db_path)
     db.init_schema()
     run_id = db.start_run()
+    if db.disabled:
+        logger.warning("SQLite DB disabled; DB writes will be skipped. reason=%s", db.error_message)
 
     generated_at = now_kst()
     errors = 0

@@ -8,11 +8,14 @@ __pycache__/
 .coverage
 .venv/
 venv/
+.codex-runtime/
 
 logs/*
 !logs/.gitkeep
 
 data/*.db
+data/*.db-journal
+data/*-journal
 data/*.sqlite
 data/*.sqlite3
 data/*.json
